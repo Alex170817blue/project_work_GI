@@ -92,10 +92,9 @@ DATASETS = {
         "filters": {"sinceTimePeriod": "2005", "untilTimePeriod":"2025"}
     },
 
-    "lavoratori_settore":{
-        "version":"1.0",
-        "dataset":"nama_10_a10_e",
-        "filters": {"sinceTimePeriod": "2005", "untilTimePeriod":"2025"}
+    "nama_10":{
+        "version":"2.0",
+        "dataset":"nama_10_a10_e"    
     },
 
     "produttivita_costo_lavoro": {
@@ -111,8 +110,8 @@ DATASETS = {
         "filters": {"sinceTimePeriod": "2005", "untilTimePeriod":"2025"}
     },
 
-    "popolazione_impiego":{
-        "version":"1.0",
+    "namq_10_pe":{
+        "version":"2.0",
         "dataset":"namq_10_pe",
         "filters": {"sinceTimePeriod": "2005", "untilTimePeriod":"2025"}
 
