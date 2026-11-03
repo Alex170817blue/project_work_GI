@@ -18,13 +18,13 @@ def download_dataset(cfg, chunk_size=7):
 
     if geos is None:
         conn = EurostatConnection(cfg["dataset"], cfg["version"], filters)
-        return JsonStatDataset(conn.download()).to_dataframe(use_labels=True)
+        return JsonStatDataset(conn.download()).to_dataframe(use_labels=False)
 
     frames = []
     for i in range(0, len(geos), chunk_size):
         chunk = geos[i:i + chunk_size]
         conn = EurostatConnection(cfg["dataset"], cfg["version"], {**filters, "geo": chunk})
-        frames.append(JsonStatDataset(conn.download()).to_dataframe(use_labels=True))
+        frames.append(JsonStatDataset(conn.download()).to_dataframe(use_labels=False))
 
     return pd.concat(frames, ignore_index=True)
 
