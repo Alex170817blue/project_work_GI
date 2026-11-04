@@ -7,10 +7,10 @@ RAW = Path("data/raw")
 CLEAN = Path("data/clean")
 CLEAN.mkdir(parents=True, exist_ok=True)
 
-AGG_RULES = {
-    "costo_occupazione": "mean",       
-    "posti_vacanti": "mean",          
-    "salario_minimo": "mean",        
+RULES = {
+    "costo_occupazione": "mean",
+    "posti_vacanti": "mean",
+    "salario_minimo": "mean",
 }
 
 for path in sorted(RAW.glob("*.parquet")):
@@ -21,7 +21,7 @@ for path in sorted(RAW.glob("*.parquet")):
         continue
 
     try:
-        out = clean_dataset(df, AGG_RULES.get(path.stem))
+        out = clean_dataset(df, RULES.get(path.stem))
     except Exception as e:
         print(f"ERRORE {path.stem}: {e}")
         continue
