@@ -1,40 +1,9 @@
 import pandas as pd
+from config.dictionaries import GEO_NAMES
 
 # TEMPO, GEO, UNIT, NA_ITEM, S_ADJ, NACE_R2, INDIC_EM
 # TEMPO IN QUARTILI -> trasformarlo in data leggibile
 
-
-GEO_NAMES = {
-    "EU27_2020": "Unione Europea (UE27)",
-    "EA20": "Eurozona (EA20)",
-    "AT": "Austria",
-    "BE": "Belgio",
-    "BG": "Bulgaria",
-    "CY": "Cipro",
-    "CZ": "Repubblica Ceca",
-    "DE": "Germania",
-    "DK": "Danimarca",
-    "EE": "Estonia",
-    "EL": "Grecia",
-    "ES": "Spagna",
-    "FI": "Finlandia",
-    "FR": "Francia",
-    "HR": "Croazia",
-    "HU": "Ungheria",
-    "IE": "Irlanda",
-    "IT": "Italia",
-    "LT": "Lituania",
-    "LU": "Lussemburgo",
-    "LV": "Lettonia",
-    "MT": "Malta",
-    "NL": "Paesi Bassi",
-    "PL": "Polonia",
-    "PT": "Portogallo",
-    "RO": "Romania",
-    "SE": "Svezia",
-    "SI": "Slovenia",
-    "SK": "Slovacchia"
-}
 
 def clean_time(time_series: pd.Series) -> pd.Series:
     time_series = time_series.astype(str)

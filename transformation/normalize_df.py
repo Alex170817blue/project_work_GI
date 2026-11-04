@@ -15,8 +15,8 @@ FATTI
 tasso, costo, inflazione, pil etc etc
 
 ------------------------------------
-tasso_disocc
-DE | 2015 | PC | Y15-24 | 7.2
+fatto_tasso_disocc
+1 | DE | 2015 | PC | Y15-24 | 7.2
 
 dim_geo
 DE | Germania | Eurozona
@@ -29,40 +29,13 @@ PC | "percentuale popolazione attiva"
 from dataclasses import dataclass
 from pathlib import Path
 import pandas as pd
-from transformation.clean import GEO_NAMES
+from sqlalchemy import  UniqueConstraint
+from config.dictionaries import GEO_NAMES, DIM_NAMES, UNIT_INFO
 
-DIM_NAMES = {
+DROP_COL = ["freq", "sex"]
+DIM_COLS = ["unit", "age", "s_adj", "na_item", "nace_r2", "nace_r2_1",
+            "sizeclas", "lcstruct", "indic_em"]
 
-    "sex": {"T": "Totale", "M":"Uomini", "F":"Donne"},
-    "age": {"Y15-24": "15-24 anni", "Y25-54": "25-54 anni", "Y55-64":"55-64 anni"},
-    "s_adj":{"NSA":"Dati non destagionalizzati"}, #da allargare se vogliamo altri dati con filtri diversi
-    "nace_r2":{
-        "A": "Agricoltura, Silvicoltura e pesca",
-        "B-E" : "Industria (escluse costruzioni)",
-        "C" : "Attività manifatturiere",
-        "F": "Costruzioni",
-        "G-I": "Commercio, trasporti, alloggio e ristorazione",
-        "G-J": "Commercio, trasporti, alloggio, informazione e ristorazione",
-        "J": "Informazione e comunicazione",
-        "K": "Attività finanziarie e assicurative",
-        "L":"Attività immobiliari",
-        "M-N":"Attività professionali e servizi di supporto",
-        "K-N": "Finanza, immobiliare e servizi alle imprese",
-        "O-Q":"Pubblica amministrazione, istruzione e sanità",
-        "O-S":"Pubblica amministrazione e altri servizi",
-        "R-U": "Arte, intrattenimento e altri servizi",
-        "B-S":"Economia (escl. agricoltura e famiglie)"
-    },
-
-    "na_item":{
-        "B1G":"Valore Aggiunto lordo",
-        "EMP_DC":"O"},
-
-    "indic_em": {}
-
-}
-
-DROP_COL = ["freq"]
 
 @dataclass
 class TableStructure:
@@ -110,15 +83,19 @@ def build_dim_unit(df):
     if not sigle:
         return None
 
-    #DA FARE DIZIONARIO
-    info = [UNITA_INFO.get(c,(c, "sconosciuto", None)) for c in sigle]
+    info = [UNIT_INFO.get(c,(c, "sconosciuto", None)) for c in sigle]
     dfs = pd.DataFrame({
         "unit":sigle,
-        "unit_name": [i[0] fori in info],
-        ...
+        "unit_name": [i[0] for i in info],
+        "unit_type": [i[1] for i in info],
+        "base_year":pd.array([i[2] for i in info], dtype="Int64")
     })
 
     return TableStructure("dim_unit", dfs, pk=["unit"])
+
+def build_year(df):
+    years = sorted(set().union(*[set(df["year"].astype(int)) for dfs in df.values()]))
+    return TableStructure("dim_year", pd.DataFrame({"year":years}), pk=["year"])
 
 def build_other_dim(df, col):
     sigle = code(df, col)
@@ -127,5 +104,23 @@ def build_other_dim(df, col):
     names = DIM_NAMES.get(col,{})
     dfs = pd.DataFrame({col: sigle, f"{col}":[names.get(c,c) for c in sigle]})
     return TableStructure(f"dim_{col}", dfs, pk=[col])
+
+#COSTRUIAMO I FATTI
+
+def build_fact(name, df):
+    dims = [c for c in DIM_COLS if c in df.columns]
+    key = ["geo", "year"] + dims
+    fact = df[key + ["value"]].copy()
+    fact["year"] = fact["year"].astype(int)
+
+    for c in ["geo"] + dims:
+        fact[c] = fact[c].astype(str)
+
+    fact.insert(0, "id", range(1, len(fact) + 1))
+
+    maps = {"geo":"dim_geo.geo", "year":"dim_year.year"}
+    maps.update({c: f"dim_{c}" for c in dims})
+    return TableStructure(f"fact_{name}", fact.reset_index(drop=True), pk=["id"], maps = maps)
+
 
 
