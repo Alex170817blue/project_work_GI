@@ -118,7 +118,7 @@ def build_fact(name, df):
     fact.insert(0, "id", range(1, len(fact) + 1))
 
     maps = {"geo":"dim_geo.geo", "year":"dim_year.year"}
-    maps.update({c: f"dim_{c}" for c in dims})
+    maps.update({c: f"dim_{c}.{c}" for c in dims})
     return TableStructure(f"fact_{name}", fact.reset_index(drop=True), pk=["id"], fks = maps)
 
 
