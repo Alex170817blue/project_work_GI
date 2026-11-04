@@ -10,8 +10,9 @@ DATASETS = {
         "filters": {
             "geo": GEO_ALL,
             "temporal": TRIMESTRALE,
-            "unit": "PCH_SM",
-            "s_adj": "NSA"
+            "unit": ["PCH_SM","I20"],
+            "s_adj": "NSA",
+            "lcstruct": ["D1_D4_MD5", "D11", "D12_D4_MD5"],
         }
     },
 
@@ -91,7 +92,7 @@ DATASETS = {
             "geo": GEO_ALL,
             "temporal": ANNUALE,
             "unit":"CLV20_MEUR",
-            "na_item":"B1G"
+            "na_item":"B1GQ"
 
         }
     },
@@ -103,22 +104,22 @@ DATASETS = {
                 "geo": GEO_ALL,
                 "temporal": ANNUALE,
                 "unit":"CP_MEUR",
-    
+                "na_item":"B1GQ"
+
             }
         },
 
     #occupazione per attività economica
 
 
-    "occupazione_per_attività":{
+    "occupazione_per_attivita":{
         "version":"1.0",
         "dataset":"nama_10_a10_e",    
         "filters": {
             "geo": GEO_ALL,
             "temporal": ANNUALE,
-            "unit":["PC_TOT_PER", "PC_TOT_HW", "PC_TOT_JOB"],
-            "nace_r2": "TOTAL"
-            
+            "unit":["PC_TOT_PER", "PC_TOT_HW", "PC_TOT_JOB", "THS_PER"],
+            "nace_r2": ["TOTAL", "A", "B-E", "F", "G-I", "J", "K", "L", "M_N", "O-Q", "R-U"],
         }
     },
 
@@ -153,7 +154,10 @@ DATASETS = {
         "dataset":"namq_10_pe",
         "filters": {
             "geo": GEO_ALL,
-            "temporal": TRIMESTRALE
+            "temporal": TRIMESTRALE,
+            "na_item":"EMP_DC",
+            "unit":"THS_PER",
+            "s_adj":"NSA",
         }
     },
 
@@ -180,7 +184,7 @@ DATASETS = {
         "filters": {
             "geo": GEO_ALL,
             "temporal": ANNUALE,
-            "currency":["PPS", "EUR"]
+            "currency":["PPS", "EUR"],
         }
     }
 
