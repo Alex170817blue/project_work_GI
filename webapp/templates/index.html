@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <title>EU Labour Market</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+    fieldset { margin-bottom: 1.5rem; }
+    label { display: inline-block; margin: .2rem .8rem .2rem 0; }
+    pre { background: #111; color: #ddd; padding: .8rem; max-height: 220px; overflow: auto; }
+    select[multiple] { height: 140px; }
+  </style>
+</head>
+<body>
+<h1>EU Labour Market</h1>
+
+<fieldset>
+  <legend>1. Pipeline</legend>
+  <div>
+    {% for d in datasets %}
+      <label><input type="checkbox" name="ds" value="{{ d }}" checked> {{ d }}</label>
+    {% endfor %}
+  </div>
+  <p>
+    Anni: <input id="yfrom" type="number" placeholder="2005" style="width:5rem">
+    – <input id="yto" type="number" placeholder="2025" style="width:5rem">
+    <label><input type="checkbox" id="force"> Riscarica anche se esiste</label>
+  </p>
+  <button onclick="run('download')">Download</button>
+  <button onclick="run('clean')">Clean</button>
+  <button onclick="run('normalize')">Normalize</button>
+  <button onclick="run('load')">Load MySQL</button>
+  <pre id="log">Nessun job eseguito.</pre>
+</fieldset>
+
+<fieldset>
+  <legend>2. Grafico</legend>
+  <select id="table" onchange="loadDims()"></select>
+  <div id="dims"></div>
+  <button onclick="draw()">Disegna</button>
+  <canvas id="chart" height="110"></canvas>
+</fieldset>
+
+<script>
+async function run(step) {
+  const body = {
+    datasets: [...document.querySelectorAll('input[name=ds]:checked')].map(x => x.value),
+    force: document.getElementById('force').checked,
+    year_from: document.getElementById('yfrom').value,
+    year_to: document.getElementById('yto').value,
+  };
+  const r = await fetch('/api/run/' + step, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+  });
+  const data = await r.json();
+  if (!r.ok) { log.textContent = data.error; return; }
+  poll(data.job_id);
+}
+
+async function poll(id) {
+  const job = await (await fetch('/api/jobs/' + id)).json();
+  document.getElementById('log').textContent = job.log.join('\n') + '\n[' + job.status + ']';
+  if (job.status === 'running') setTimeout(() => poll(id), 1000);
+  else loadTables();
+}
+
+async function loadTables() {
+  const tables = await (await fetch('/api/tables')).json();
+  const sel = document.getElementById('table');
+  sel.innerHTML = tables.map(t => `<option>${t}</option>`).join('');
+  if (tables.length) loadDims();
+}
+
+async function loadDims() {
+  const table = document.getElementById('table').value;
+  const dims = await (await fetch('/api/dimensions/' + table)).json();
+  document.getElementById('dims').innerHTML = Object.entries(dims).map(([col, vals]) =>
+    `<label>${col}: <select id="dim_${col}" ${col === 'geo' ? 'multiple' : ''}>` +
+    vals.map(v => `<option>${v}</option>`).join('') + `</select></label>`
+  ).join('');
+}
+
+let chart;
+async function draw() {
+  const table = document.getElementById('table').value;
+  const q = new URLSearchParams({table});
+  document.querySelectorAll('#dims select').forEach(s => {
+    const col = s.id.replace('dim_', '');
+    [...s.selectedOptions].forEach(o => q.append(col, o.value));
+    if (!s.multiple && !s.selectedOptions.length) q.append(col, s.options[0].value);
+  });
+  const r = await fetch('/api/series?' + q);
+  if (!r.ok) { alert((await r.text()).slice(0, 200)); return; }
+  const series = await r.json();
+  const datasets = Object.entries(series).map(([geo, pts]) => ({label: geo, data: pts, parsing: {xAxisKey: 'x', yAxisKey: 'y'}}));
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('chart'), {
+    type: 'line', data: {datasets},
+    options: {scales: {x: {type: 'linear', ticks: {precision: 0}}}}
+  });
+}
+
+loadTables();
+</script>
+</body>
+</html>

@@ -157,6 +157,9 @@ def save_tables(tables, folder: Path, csv_folder: Path | None = None ):
     (folder / "_schema.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
 
-
+def load_tables(folder: Path):
+    meta = json.loads((folder / "_schema.json").read_text(encoding="utf-8"))
+    return [TableStructure(n, pd.read_parquet(folder / f"{n}.parquet"), m["pk"], m["fks"])
+            for n, m in meta.items()]
 
 
