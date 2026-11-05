@@ -11,6 +11,8 @@ RULES = {
     "costo_occupazione": "mean",
     "posti_vacanti": "mean",
     "salario_minimo": "mean",
+    "pil_componenti_quarto":"mean",
+    "popolazione_impiego":"mean"
 }
 
 for path in sorted(RAW.glob("*.parquet")):
