@@ -1,7 +1,8 @@
 from pathlib import Path
-
 import pandas as pd
+import shutil
 
+from loading.mysql_loader import reset_mysql
 from config.datasets import DATASETS
 from ingestion.extract_data import download_dataset
 from loading.mysql_loader import mysql_connection, load_mysql
@@ -42,7 +43,7 @@ def apply_overrides(cfg, geo=None, year_from=None, year_to=None):
 
 def run_download(names=None, force=False, geo=None, year_from=None, year_to=None, log=print):
     RAW.mkdir(parents=True, exist_ok=True)
-    
+
     for name in (names or DATASETS):
         path = RAW / f"{name}.parquet"
         if path.exists() and not force:
@@ -90,3 +91,13 @@ def run_load(log=print):
     tables = load_tables(STAR)
     load_mysql(mysql_connection(), tables, recreate=True)
     log("Caricamento in MySQL completato")
+
+def run_reset_db(log=print):
+    reset_mysql(mysql_connection(), log=log)
+
+
+def run_reset_files(log=print):
+    for folder in (RAW, CLEAN, STAR, CSV.parent):
+        if folder.exists():
+            shutil.rmtree(folder)
+            log(f"Cancellata cartella {folder}")

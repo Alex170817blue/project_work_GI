@@ -2,104 +2,259 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>EU Labour Market</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
-    fieldset { margin-bottom: 1.5rem; }
-    label { display: inline-block; margin: .2rem .8rem .2rem 0; }
-    pre { background: #111; color: #ddd; padding: .8rem; max-height: 220px; overflow: auto; }
-    select[multiple] { height: 140px; }
-  </style>
 </head>
 <body>
-<h1>EU Labour Market</h1>
+<header>
+  <h1>EU Labour Market</h1>
+  <p>Dati Eurostat 2005–2025: costo del lavoro, occupazione, PIL, salari</p>
+</header>
 
-<fieldset>
-  <legend>1. Pipeline</legend>
-  <div>
-    {% for d in datasets %}
-      <label><input type="checkbox" name="ds" value="{{ d }}" checked> {{ d }}</label>
-    {% endfor %}
+<main>
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-panel="charts">Grafici</button>
+    <button class="tab" data-panel="pipeline">Pipeline</button>
   </div>
-  <p>
-    Anni: <input id="yfrom" type="number" placeholder="2005" style="width:5rem">
-    – <input id="yto" type="number" placeholder="2025" style="width:5rem">
-    <label><input type="checkbox" id="force"> Riscarica anche se esiste</label>
-  </p>
-  <button onclick="run('download')">Download</button>
-  <button onclick="run('clean')">Clean</button>
-  <button onclick="run('normalize')">Normalize</button>
-  <button onclick="run('load')">Load MySQL</button>
-  <pre id="log">Nessun job eseguito.</pre>
-</fieldset>
 
-<fieldset>
-  <legend>2. Grafico</legend>
-  <select id="table" onchange="loadDims()"></select>
-  <div id="dims"></div>
-  <button onclick="draw()">Disegna</button>
-  <canvas id="chart" height="110"></canvas>
-</fieldset>
+  <!-- ============ GRAFICI ============ -->
+  <section id="charts" class="panel active">
+    <div class="card">
+      <h2>Seleziona i dati</h2>
+      <div class="controls">
+        <div class="field">
+          <label for="table">Tabella</label>
+          <select id="table"></select>
+        </div>
+        <div id="dims" style="display:contents"></div>
+      </div>
+      <p class="hint">Per i paesi puoi selezionarne più di uno (Ctrl/Cmd + clic). Le altre dimensioni accettano un solo valore, per non mescolare misure diverse.</p>
+      <div class="actions">
+        <button class="btn primary" id="draw">Disegna grafico</button>
+        <button class="btn" id="export" disabled>Scarica PNG</button>
+      </div>
+      <div id="chart-error" class="error-msg"></div>
+    </div>
+
+    <div class="card">
+      <div class="chart-wrap">
+         <canvas id="chart" hidden></canvas>
+        <div id="empty" class="empty">Scegli una tabella e premi “Disegna grafico”.</div>
+    
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PIPELINE ============ -->
+  <section id="pipeline" class="panel">
+    <div class="card">
+      <h2>1. Dataset da scaricare</h2>
+      <div class="chips">
+        {% for d in datasets %}
+          <label class="chip"><input type="checkbox" name="ds" value="{{ d }}" checked><span>{{ d }}</span></label>
+        {% endfor %}
+      </div>
+      <div class="controls" style="margin-top:1rem">
+        <div class="field"><label for="yfrom">Dall'anno</label><input id="yfrom" type="number" placeholder="2005"></div>
+        <div class="field"><label for="yto">All'anno</label><input id="yto" type="number" placeholder="2025"></div>
+      </div>
+      <p class="hint">Un download filtrato produce dati parziali: Normalize e Load costruiranno il database solo su quel sottoinsieme.</p>
+      <label class="chip" style="margin-top:.5rem"><input type="checkbox" id="force"><span>Riscarica anche se esiste</span></label>
+    </div>
+
+    <div class="card">
+      <h2>2. Esegui i passi <span id="status" class="status">fermo</span></h2>
+      <div class="actions" style="margin-top:0">
+        <button class="btn primary" data-step="download">Download</button>
+        <button class="btn" data-step="clean">Clean</button>
+        <button class="btn" data-step="normalize">Normalize</button>
+        <button class="btn" data-step="load">Load MySQL</button>
+      </div>
+      <pre id="log">Nessun job eseguito.</pre>
+    </div>
+
+    <details class="danger">
+      <summary>Zona pericolosa</summary>
+      <p class="hint">Elimina tutte le tabelle del database. L'operazione è irreversibile, ma i dati si possono riscaricare da Eurostat.</p>
+      <label class="chip"><input type="checkbox" id="resetfiles"><span>Cancella anche i file in data/</span></label>
+      <div class="row">
+        <input id="resetconfirm" type="text" placeholder="Scrivi RESET per confermare">
+        <button class="btn danger" id="reset">Reset database</button>
+      </div>
+    </details>
+  </section>
+</main>
 
 <script>
-async function run(step) {
-  const body = {
-    datasets: [...document.querySelectorAll('input[name=ds]:checked')].map(x => x.value),
-    force: document.getElementById('force').checked,
-    year_from: document.getElementById('yfrom').value,
-    year_to: document.getElementById('yto').value,
-  };
-  const r = await fetch('/api/run/' + step, {
+const $ = id => document.getElementById(id);
+const PALETTE = ['#2554d6', '#e4572e', '#17a398', '#f0a202', '#8e44ad', '#2e9e5b',
+                 '#d1495b', '#00798c', '#edae49', '#66a182', '#6c5b7b', '#c06c84'];
+
+/* ---------- schede ---------- */
+document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+  document.querySelectorAll('.tab, .panel').forEach(el => el.classList.remove('active'));
+  tab.classList.add('active');
+  $(tab.dataset.panel).classList.add('active');
+}));
+
+/* ---------- pipeline ---------- */
+function setBusy(busy) {
+  document.querySelectorAll('[data-step], #reset').forEach(b => b.disabled = busy);
+}
+
+function setStatus(status) {
+  const el = $('status');
+  el.textContent = status;
+  el.className = 'status ' + status;
+}
+
+async function post(url, body) {
+  const r = await fetch(url, {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
   });
-  const data = await r.json();
-  if (!r.ok) { log.textContent = data.error; return; }
+  return {ok: r.ok, data: await r.json()};
+}
+
+async function run(step) {
+  const {ok, data} = await post('/api/run/' + step, {
+    datasets: [...document.querySelectorAll('input[name=ds]:checked')].map(x => x.value),
+    force: $('force').checked,
+    year_from: $('yfrom').value,
+    year_to: $('yto').value,
+  });
+  if (!ok) { $('log').textContent = data.error; return; }
+  setBusy(true);
   poll(data.job_id);
 }
 
 async function poll(id) {
   const job = await (await fetch('/api/jobs/' + id)).json();
-  document.getElementById('log').textContent = job.log.join('\n') + '\n[' + job.status + ']';
-  if (job.status === 'running') setTimeout(() => poll(id), 1000);
-  else loadTables();
+  const logEl = $('log');
+  logEl.textContent = job.log.join('\n');
+  logEl.scrollTop = logEl.scrollHeight;
+  setStatus(job.status);
+  if (job.status === 'running') { setTimeout(() => poll(id), 1000); return; }
+  setBusy(false);
+  loadTables();
 }
 
+document.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => run(b.dataset.step)));
+
+$('reset').addEventListener('click', async () => {
+  const text = $('resetconfirm').value;
+  if (text !== 'RESET') { alert('Scrivi RESET nel campo per confermare.'); return; }
+  if (!window.confirm('Verranno eliminate tutte le tabelle del database. Continuare?')) return;
+  const {ok, data} = await post('/api/reset', {confirm: text, files: $('resetfiles').checked});
+  if (!ok) { $('log').textContent = data.error; return; }
+  $('resetconfirm').value = '';
+  setBusy(true);
+  poll(data.job_id);
+});
+
+/* ---------- selezione dati ---------- */
 async function loadTables() {
   const tables = await (await fetch('/api/tables')).json();
-  const sel = document.getElementById('table');
-  sel.innerHTML = tables.map(t => `<option>${t}</option>`).join('');
+  $('table').innerHTML = tables.map(t => `<option>${t}</option>`).join('');
+  $('dims').innerHTML = tables.length ? '' : '<em>Database vuoto: esegui la pipeline.</em>';
   if (tables.length) loadDims();
 }
 
 async function loadDims() {
-  const table = document.getElementById('table').value;
-  const dims = await (await fetch('/api/dimensions/' + table)).json();
-  document.getElementById('dims').innerHTML = Object.entries(dims).map(([col, vals]) =>
-    `<label>${col}: <select id="dim_${col}" ${col === 'geo' ? 'multiple' : ''}>` +
-    vals.map(v => `<option>${v}</option>`).join('') + `</select></label>`
+  const dims = await (await fetch('/api/dimensions/' + $('table').value)).json();
+  $('dims').innerHTML = Object.entries(dims).map(([col, vals]) =>
+    `<div class="field"><label for="dim_${col}">${col}</label>` +
+    `<select id="dim_${col}" ${col === 'geo' ? 'multiple' : ''}>` +
+    vals.map(v => `<option>${v}</option>`).join('') + `</select></div>`
   ).join('');
 }
+$('table').addEventListener('change', loadDims);
 
+/* ---------- grafico ---------- */
 let chart;
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function showEmpty(msg) {
+  $('empty').hidden = false;
+  $('empty').textContent = msg;
+  $('chart').hidden = true;
+  $('export').disabled = true;
+}
+
 async function draw() {
-  const table = document.getElementById('table').value;
+  $('chart-error').textContent = '';
+  const table = $('table').value;
   const q = new URLSearchParams({table});
+  const picked = [];
+
   document.querySelectorAll('#dims select').forEach(s => {
     const col = s.id.replace('dim_', '');
-    [...s.selectedOptions].forEach(o => q.append(col, o.value));
-    if (!s.multiple && !s.selectedOptions.length) q.append(col, s.options[0].value);
+    const chosen = [...s.selectedOptions].map(o => o.value);
+    if (!s.multiple && !chosen.length) chosen.push(s.options[0].value);
+    chosen.forEach(v => q.append(col, v));
+    if (col !== 'geo') picked.push(chosen[0]);
   });
+
   const r = await fetch('/api/series?' + q);
-  if (!r.ok) { alert((await r.text()).slice(0, 200)); return; }
+  if (!r.ok) {
+    $('chart-error').textContent = (await r.text()).replace(/<[^>]*>/g, ' ').trim().slice(0, 200);
+    return;
+  }
   const series = await r.json();
-  const datasets = Object.entries(series).map(([geo, pts]) => ({label: geo, data: pts, parsing: {xAxisKey: 'x', yAxisKey: 'y'}}));
+  const geos = Object.keys(series);
+  if (!geos.length) { showEmpty('Nessun dato per questa combinazione di filtri.'); return; }
+
+  $('empty').hidden = true;
+  $('chart').hidden = false;
+  $('export').disabled = false;
+
+  const datasets = geos.map((geo, i) => ({
+    label: geo,
+    data: series[geo],
+    parsing: {xAxisKey: 'x', yAxisKey: 'y'},
+    borderColor: PALETTE[i % PALETTE.length],
+    backgroundColor: PALETTE[i % PALETTE.length],
+    borderWidth: 2,
+    pointRadius: 2,
+    pointHoverRadius: 5,
+    tension: 0.2,
+    spanGaps: false,
+  }));
+
   if (chart) chart.destroy();
-  chart = new Chart(document.getElementById('chart'), {
-    type: 'line', data: {datasets},
-    options: {scales: {x: {type: 'linear', ticks: {precision: 0}}}}
+  const text = cssVar('--text'), grid = cssVar('--border');
+  chart = new Chart($('chart'), {
+    type: 'line',
+    data: {datasets},
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {mode: 'nearest', axis: 'x', intersect: false},
+      plugins: {
+        title: {display: true, color: text, text: table.replace('fact_', '').replaceAll('_', ' ') + (picked.length ? ' — ' + picked.join(' · ') : '')},
+        legend: {position: 'bottom', labels: {color: text, usePointStyle: true}},
+        tooltip: {callbacks: {label: c => `${c.dataset.label}: ${c.parsed.y.toLocaleString('it-IT')}`}},
+      },
+      scales: {
+        x: {type: 'linear', ticks: {precision: 0, color: text}, grid: {color: grid}, title: {display: true, text: 'Anno', color: text}},
+        y: {ticks: {color: text, callback: v => v.toLocaleString('it-IT')}, grid: {color: grid}},
+      },
+    },
   });
 }
+
+$('draw').addEventListener('click', draw);
+
+$('export').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = $('chart').toDataURL('image/png');
+  a.download = 'grafico.png';
+  a.click();
+});
 
 loadTables();
 </script>

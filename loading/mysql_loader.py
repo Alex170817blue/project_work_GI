@@ -38,9 +38,7 @@ def build_metadata(tables):
                    for c in t.df.columns]
 
         constraints = [PrimaryKeyConstraint(*t.pk)]
-        # una FK per ogni coppia: ForeignKeyConstraint([colonna_fatto], ["tabella.colonna"])
         constraints += [ForeignKeyConstraint([c], [ref]) for c, ref in t.fks.items()]
-        # i fatti hanno id come PK: l'unicità sulla chiave naturale evita i duplicati
         if t.pk == ["id"]:
             constraints.append(UniqueConstraint(*t.fks.keys()))
 
@@ -62,3 +60,10 @@ def load_mysql(engine, tables, recreate=True):
             df.to_sql(table.name, conn, if_exists="append", index=False,
                       chunksize=5000, method="multi")
             print(f"{table.name}: {len(df)} righe")
+
+def reset_mysql(engine, log=print):
+    metadata = MetaData()
+    metadata.reflect(bind=engine)          
+    names = [t.name for t in metadata.sorted_tables]
+    metadata.drop_all(engine)             
+    log(f"Eliminate {len(names)} tabelle: {', '.join(names) or 'nessuna'}")

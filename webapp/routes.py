@@ -110,3 +110,21 @@ def series():
         for geo, year, value in conn.execute(text(sql), params):
             result.setdefault(geo, []).append({"x": year, "y": value})
     return jsonify(result)
+
+@bp.post("/api/reset")
+def reset():
+    body = request.get_json(silent=True) or {}
+    if body.get("confirm") != "RESET":
+        return jsonify(error="Conferma mancante: invia confirm='RESET'"), 400
+
+    kwargs = {}
+    fn = pipeline.run_reset_db
+    if body.get("files"):
+        def fn(log):
+            pipeline.run_reset_db(log=log)
+            pipeline.run_reset_files(log=log)
+
+    job_id = start_job(fn)
+    if job_id is None:
+        return jsonify(error="C'è già un job in esecuzione"), 409
+    return jsonify(job_id=job_id)
