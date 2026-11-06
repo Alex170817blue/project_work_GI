@@ -10,7 +10,7 @@
 <body>
 <header>
   <h1>EU Labour Market</h1>
-  <p>Dati Eurostat 2005–2025: costo del lavoro, occupazione, PIL, salari</p>
+  <p>Una Pipeline per i tuoi dati europei</p>
 </header>
 
 <main>
@@ -19,7 +19,7 @@
     <button class="tab" data-panel="pipeline">Pipeline</button>
   </div>
 
-  <!-- ============ GRAFICI ============ -->
+  <!-- GRAFICI -->
   <section id="charts" class="panel active">
     <div class="card">
       <h2>Seleziona i dati</h2>
@@ -41,16 +41,15 @@
     <div class="card">
       <div class="chart-wrap">
          <canvas id="chart" hidden></canvas>
-        <div id="empty" class="empty">Scegli una tabella e premi “Disegna grafico”.</div>
-    
+        <div id="empty" class="empty"></div>
       </div>
     </div>
   </section>
 
-  <!-- ============ PIPELINE ============ -->
+  <!-- PIPELINE  -->
   <section id="pipeline" class="panel">
     <div class="card">
-      <h2>1. Dataset da scaricare</h2>
+      <h2>Dataset da scaricare</h2>
       <div class="chips">
         {% for d in datasets %}
           <label class="chip"><input type="checkbox" name="ds" value="{{ d }}" checked><span>{{ d }}</span></label>
@@ -65,7 +64,7 @@
     </div>
 
     <div class="card">
-      <h2>2. Esegui i passi <span id="status" class="status">fermo</span></h2>
+      <h2>Esegui i passi in ordine <span id="status" class="status">fermo</span></h2>
       <div class="actions" style="margin-top:0">
         <button class="btn primary" data-step="download">Download</button>
         <button class="btn" data-step="clean">Clean</button>
