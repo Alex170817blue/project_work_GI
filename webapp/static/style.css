@@ -43,6 +43,16 @@ header {
 }
 header h1 { margin: 0; font-size: 2rem; font-family: 'Times New Roman', Times, serif; }
 header p { margin: .15rem 0 0; color: var(--muted); font-size: .9rem; font-family: 'Times New Roman', Times, serif; }
+header .header-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+header .logo-eurostat {
+  color: var(--accent);
+  flex-shrink: 0;
+}
 
 main { max-width: 1080px; margin: 0 auto; padding: 1.5rem; }
 
