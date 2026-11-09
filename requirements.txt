@@ -4,3 +4,4 @@ pymysql
 requests
 pyarrow
 Flask
+dotenv
